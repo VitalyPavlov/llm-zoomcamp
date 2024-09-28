@@ -4,7 +4,7 @@ This is an example of using a RAG (Retrieval-Augmented Generation) system to obt
 
 Here is an example of a Streamlit app. You can specify a time interval for when the articles were published. The example below was generated on 28/09/2024, before the match between FC Bayern Munich and Bayer 04 Leverkusen.
 
-![Example](./rag_for_sport_news/data/example.png)
+![Example](./rag_for_sport_news/data/example2.png)
 
 Hallucination is the main challenge when using LLMs in practice, as the answers may not always be 100% accurate.
 
