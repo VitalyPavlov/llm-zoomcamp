@@ -1,0 +1,8 @@
+numpy
+pandas
+scikit-learn
+openai
+streamlit
+bs4
+feedparser
+lxml

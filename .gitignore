@@ -163,3 +163,4 @@ cython_debug/
 
 venv
 .env
+.DS_Store
