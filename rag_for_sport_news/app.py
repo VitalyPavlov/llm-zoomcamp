@@ -26,7 +26,11 @@ client = OpenAI()
 client.api_key = API_KEY
 
 
-def parse_rss():
+def parse_rss() -> None:
+    """
+    Parser for RSS feeds. Saves the results into a file.
+    """
+
     rss_url = pd.read_csv(RSS_URL_PATH)
     parsed_rss = pd.DataFrame(columns=['date', 'title', 'url', 'summary'])
 
@@ -50,13 +54,26 @@ def parse_rss():
 
     parsed_rss.to_csv(PARSED_RSS_PATH, index=False)
     
-def parse_articles():
+def parse_articles() -> None:
+    """
+    Parser for articles (web pages). Saves the results into a file.
+    """
+
     if not os.path.isfile(PARSED_RSS_PATH):
         return
     
     parsed_rss = pd.read_csv(PARSED_RSS_PATH)
 
-    articles = {"date": [],"url": [],"url2": [],"title": [],"title_rss": [],"summary": [],"content": []}
+    articles = {
+        "date": [],
+        "url": [],
+        "url2": [],
+        "title": [],
+        "title_rss": [],
+        "summary": [],
+        "content": []
+    }
+    
     for i in tqdm(range(len(parsed_rss))):
         date = parsed_rss.loc[i, 'date']
         title_rss = parsed_rss.loc[i, 'title']
@@ -91,7 +108,16 @@ def parse_articles():
     else:
         articles.to_csv(PARSED_ARTICLES_PATH, index=False)
 
-def build_index(start, end):
+def build_index(start:int, end:int) -> minsearch.Index:
+    """
+    Reads the file with articles and generate search index.
+
+    Args:
+        start (int): number of days by the date of publication of the article (the beginning of the observation interval)
+        end (int): number of days by the date of publication of the article (the end of the observation interval)
+    Returns:
+        minsearch.Index: index for searching
+    """
     art_df = pd.read_csv(PARSED_ARTICLES_PATH)
     art_df.fillna('NA', inplace=True)
     art_df['date'] = art_df['date'].apply(lambda x: parse(x).date())
@@ -119,6 +145,17 @@ def build_index(start, end):
     return index
 
 def search(query, index, num_results=5):
+    """
+    Searchs relevant articles in our database.
+
+    Args:
+        query (str): our question
+        index (minsearch.Index): index for searching
+        num_results (int): number of top k articles 
+    Returns:
+        str: prompt
+    """
+
     boost = {'text': 3.0, 'title': 1.0}
 
     results = index.search(
@@ -130,7 +167,15 @@ def search(query, index, num_results=5):
 
     return results
 
-def build_prompt(query, search_results):
+def build_prompt(query: str, search_results: list) -> str:
+    """
+    Args:
+        query (str): our question
+        search_results (list): parsed articles relevant to the question
+    Returns:
+        str: prompt
+    """
+    
     prompt_template = """
         You are a football analyst who needs precise information on the latest events in sports.
         Answer the QUESTION and provide a detailed summary based on the CONTEXT from the sport articles, breaking it down into clear, concise points. 
@@ -153,7 +198,15 @@ def build_prompt(query, search_results):
     prompt = prompt_template.format(question=query, context=context).strip()
     return prompt[:PROMT_LIMIT]
 
-def build_cascade_prompt(query, search_results):
+def build_cascade_prompt(query: str, search_results: list) -> str:
+    """
+    Args:
+        query (str): our question
+        search_results (list): parsed articles relevant to the question
+    Returns:
+        str: prompt
+    """
+
     prompt_template = """
         You are a football analyst who needs precise information on the latest events in sports.
         Answer the QUESTION based on the CONTEXT from a short review of sport articles, breaking it down into clear, concise points. 
@@ -173,20 +226,51 @@ def build_cascade_prompt(query, search_results):
     prompt = prompt_template.format(question=query, context=context).strip()
     return prompt
 
-def llm(prompt):
+def llm(prompt: str) -> str:
+    """
+    Run LLM ChatGPT model.
+
+    Args:
+        prompt (str): our prompt
+    Returns:
+        str: LLM response
+    """
+
     response = client.chat.completions.create(
         model='gpt-4o',
         messages=[{"role": "user", "content": prompt}]
     )
     return response.choices[0].message.content
 
-def rag(query, index):
+def rag(query: str, index: minsearch.Index) -> str:
+    """
+    The main function that run RAG components.
+
+    Args:
+        query (str): our question
+        index (minsearch.Index): index of search
+    Returns:
+        str: RAG LLM response
+    """
+
     search_results = search(query, index)
     prompt = build_prompt(query, search_results)
     answer = llm(prompt)
     return answer
 
 def cascade_rag(query, index, max_num_results=25, step=5):
+    """
+    The main function that run RAG components for cascade prediction.
+    
+    Args:
+        query (str): our question
+        index (minsearch.Index): index of search
+        max_num_results (int): number of all articles to use
+        step (int): number of articles in one batch
+    Returns:
+        str: RAG LLM response
+    """
+
     search_results = search(query, index, num_results=max_num_results)
     cascade_answers = []
     for i in range(0,max_num_results,step):
@@ -201,7 +285,6 @@ def cascade_rag(query, index, max_num_results=25, step=5):
 def main():
     st.title("RAG for sport news")
     
-
     if 'slider_values' not in st.session_state:
         st.session_state.slider_values = (1, 3)
     if 'use_cascade' not in st.session_state:
