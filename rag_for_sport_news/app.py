@@ -302,7 +302,6 @@ def main():
                 parse_articles()
                 st.success("Completed!")
 
-    days = 10
     with col2:
         st.session_state.slider_values = st.slider("Time interval [days]", 
                                                    1, 10, 
@@ -314,8 +313,6 @@ def main():
             with st.spinner('Updating...'):
                 end, start = st.session_state.slider_values
                 index = build_index(start, end)
-                print(index)
-                print(days)
                 st.success("Completed!")
     
     user_input = st.text_input("Enter your question:")
