@@ -23,4 +23,3 @@ streamlit run app.py
 
 #### TODO
 1. Integrate Elasticsearch (a vector database) to query the most relevant articles for a given question.
-2. Add automatic RSS parsing several times per day.
