@@ -113,8 +113,11 @@ def clean_articles() -> None:
     Removes articles older 11 days. Saves the results into a file.
     """
     articles = pd.read_csv(PARSED_ARTICLES_PATH)
+    articles['date'] = articles['date'].apply(lambda x: parse(x).date())
+
     end_date = datetime.date.today() - datetime.timedelta(11)
     start_date = datetime.date.today()
+    
     articles = articles[(articles.date >= start_date) & (articles.date <= end_date)]
     articles.reset_index(inplace=True, drop=True)
     articles.to_csv(PARSED_ARTICLES_PATH, index=False)
