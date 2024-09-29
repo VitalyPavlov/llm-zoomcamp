@@ -164,3 +164,4 @@ cython_debug/
 venv
 .env
 .DS_Store
+rag_for_sport_news/data/parsed_articles.csv
