@@ -1,11 +1,13 @@
 import os
 import re
 import requests
+import time
 import pandas as pd
 import datetime
 from lxml.html import fromstring
 from dateutil.parser import parse
 from tqdm import tqdm
+import threading
 
 from openai import OpenAI
 import streamlit as st
@@ -83,8 +85,6 @@ def parse_articles() -> None:
         try:
             html = requests.get(url, timeout=(20,20))
             if(html.status_code!=200):
-                print("skip",html.status_code,url)
-                counter += 1
                 continue
             url2 = html.url
             html = html.text
@@ -108,6 +108,35 @@ def parse_articles() -> None:
     else:
         articles.to_csv(PARSED_ARTICLES_PATH, index=False)
 
+def clean_articles() -> None:
+    """
+    Removes articles older 11 days. Saves the results into a file.
+    """
+    articles = pd.read_csv(PARSED_ARTICLES_PATH)
+    end_date = datetime.date.today() - 11
+    start_date = datetime.date.today()
+    articles = articles[(articles.date >= start_date) & (articles.date <= end_date)]
+    articles.reset_index(inplace=True, drop=True)
+    articles.to_csv(PARSED_ARTICLES_PATH, index=False)
+
+    
+def update_news(time_step: int=3600) -> None:
+    """
+    Main function that runs RSS ans articles parsing every time_step second
+    """
+
+    while True:
+        parse_rss()
+        parse_articles()
+        clean_articles()
+        time.sleep(time_step)
+    
+def start_hourly_update_news() -> None:
+    if not st.session_state.task_running:
+        thread = threading.Thread(target=update_news)
+        thread.start()
+        st.session_state.task_running = True
+
 def build_index(start:int, end:int) -> minsearch.Index:
     """
     Reads the file with articles and generate search index.
@@ -122,11 +151,10 @@ def build_index(start:int, end:int) -> minsearch.Index:
     art_df.fillna('NA', inplace=True)
     art_df['date'] = art_df['date'].apply(lambda x: parse(x).date())
 
-    if end < 10:
-        end_date = datetime.date.today() - datetime.timedelta(end)
-        start_date = datetime.date.today() - datetime.timedelta(start)
-        art_df = art_df[(art_df.date >= start_date) & (art_df.date <= end_date)]
-        art_df.reset_index(inplace=True, drop=True)
+    end_date = datetime.date.today() - datetime.timedelta(end)
+    start_date = datetime.date.today() - datetime.timedelta(start)
+    art_df = art_df[(art_df.date >= start_date) & (art_df.date <= end_date)]
+    art_df.reset_index(inplace=True, drop=True)
 
     documents = []
     for i in range(len(art_df)):
@@ -144,7 +172,7 @@ def build_index(start:int, end:int) -> minsearch.Index:
     index.fit(documents)
     return index
 
-def search(query, index, num_results=5):
+def search(query: str, index: minsearch.Index, num_results: int=5):
     """
     Searchs relevant articles in our database.
 
@@ -244,7 +272,7 @@ def llm(prompt: str) -> str:
 
 def rag(query: str, index: minsearch.Index) -> str:
     """
-    The main function that run RAG components.
+    The main function that runs RAG components.
 
     Args:
         query (str): our question
@@ -289,6 +317,8 @@ def main():
         st.session_state.slider_values = (1, 3)
     if 'use_cascade' not in st.session_state:
         st.session_state.use_cascade = False
+    if 'task_running' not in st.session_state:
+        st.session_state.task_running = False
     
     end, start = st.session_state.slider_values
     index = build_index(start, end)
@@ -297,10 +327,7 @@ def main():
 
     with col1:
         if st.button("Update news"):
-            with st.spinner('Updating...'):
-                parse_rss()
-                parse_articles()
-                st.success("Completed!")
+            start_hourly_update_news()
 
     with col2:
         st.session_state.slider_values = st.slider("Time interval [days]", 
