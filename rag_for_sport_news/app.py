@@ -154,8 +154,8 @@ def build_index(start:int, end:int) -> minsearch.Index:
     art_df.fillna('NA', inplace=True)
     art_df['date'] = art_df['date'].apply(lambda x: parse(x).date())
 
-    end_date = datetime.date.today() - datetime.timedelta(end)
     start_date = datetime.date.today() - datetime.timedelta(start)
+    end_date = datetime.date.today() - datetime.timedelta(end) 
     art_df = art_df[(art_df.date >= start_date) & (art_df.date <= end_date)]
     art_df.reset_index(inplace=True, drop=True)
 
@@ -187,7 +187,7 @@ def search(query: str, index: minsearch.Index, num_results: int=5):
         str: prompt
     """
 
-    boost = {'text': 3.0, 'title': 1.0}
+    boost = {'text': 3.0, 'summary': 2.0, 'title': 1.0}
 
     results = index.search(
         query=query,
@@ -289,7 +289,7 @@ def rag(query: str, index: minsearch.Index) -> str:
     answer = llm(prompt)
     return answer
 
-def cascade_rag(query, index, max_num_results=25, step=5):
+def cascade_rag(query, index, max_num_results=50, step=5):
     """
     The main function that run RAG components for cascade prediction.
     
@@ -317,7 +317,7 @@ def main():
     st.title("RAG for sport news")
     
     if 'slider_values' not in st.session_state:
-        st.session_state.slider_values = (1, 3)
+        st.session_state.slider_values = (0, 2)
     if 'use_cascade' not in st.session_state:
         st.session_state.use_cascade = False
     if 'task_running' not in st.session_state:
@@ -334,7 +334,7 @@ def main():
 
     with col2:
         st.session_state.slider_values = st.slider("Time interval [days]", 
-                                                   1, 10, 
+                                                   0, 10, 
                                                    st.session_state.slider_values, 
                                                    step=1)
 
